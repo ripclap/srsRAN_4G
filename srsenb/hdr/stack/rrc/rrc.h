@@ -106,6 +106,8 @@ public:
   bool     modify_ue_ctxt(uint16_t rnti, const asn1::s1ap::ue_context_mod_request_s& msg) override;
   bool     has_erab(uint16_t rnti, uint32_t erab_id) const override;
   int      get_erab_addr_in(uint16_t rnti, uint16_t erab_id, transp_addr_t& addr_in, uint32_t& teid_in) const override;
+  bool export_x2_context(uint16_t rnti, uint32_t eci, asn1::s1ap::ho_request_s& request) override;
+  void update_x2_security(uint16_t rnti, const asn1::s1ap::security_context_s& context) override;
   void     set_aggregate_max_bitrate(uint16_t rnti, const asn1::s1ap::ue_aggregate_maximum_bitrate_s& bitrate) override;
   int      setup_erab(uint16_t                                           rnti,
                       uint16_t                                           erab_id,
@@ -147,7 +149,7 @@ public:
   uint32_t get_nof_users();
 
   // logging
-  enum direction_t { Rx = 0, Tx, toS1AP, fromS1AP };
+  enum direction_t { Rx = 0, Tx, toS1AP, fromS1AP, toX2AP, fromX2AP };
   template <class T>
   void log_rrc_message(const direction_t       dir,
                        uint16_t                rnti,

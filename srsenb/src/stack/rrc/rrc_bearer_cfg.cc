@@ -166,6 +166,7 @@ bool security_cfg_handler::set_security_capabilities(const asn1::s1ap::ue_securi
 
 void security_cfg_handler::set_security_key(const asn1::fixed_bitstring<256, false, true>& key)
 {
+  next_hop_present = false;
   k_enb_present = true;
   for (uint32_t i = 0; i < key.nof_octets(); ++i) {
     k_enb[i] = key.data()[key.nof_octets() - 1 - i];
@@ -473,3 +474,22 @@ void bearer_cfg_handler::clear_pending_nas_info()
 }
 
 } // namespace srsenb
+
+namespace srsenb {
+bool security_cfg_handler::export_x2_security(uint32_t pci, uint32_t earfcn, asn1::s1ap::ho_request_s& request) const
+{
+  if (!k_enb_present) return false;
+  uint8_t star[32];
+  srsran::security_generate_k_enb_star(next_hop_present ? next_hop.data() : k_enb, pci, earfcn, star);
+  request->ue_security_cap.value = security_capabilities;
+  request->security_context.value.next_hop_chaining_count = ncc;
+  for (unsigned i = 0; i < 32; ++i) request->security_context.value.next_hop_param.data()[i] = star[31-i];
+  return true;
+}
+void security_cfg_handler::set_next_hop(const asn1::s1ap::security_context_s& context)
+{
+  for (unsigned i = 0; i < 32; ++i) next_hop[i] = context.next_hop_param.data()[31-i];
+  next_hop_present = true;
+  ncc = context.next_hop_chaining_count;
+}
+}

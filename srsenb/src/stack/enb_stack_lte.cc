@@ -173,6 +173,7 @@ void enb_stack_lte::tti_clock_impl()
 {
   task_sched.tic();
   rrc.tti_clock();
+  s1ap.x2_tick();
 }
 
 void enb_stack_lte::stop()

@@ -77,6 +77,9 @@ public:
   virtual bool user_release(uint16_t rnti, asn1::s1ap::cause_radio_network_e cause_radio) = 0;
   virtual bool is_mme_connected()                                                         = 0;
 
+  virtual bool uses_x2() const { return false; }
+  virtual bool is_x2_target() const { return false; }
+
   // Notify S1AP of RRC reconfiguration successful finish.
   // Many S1AP procedures use this notification to indicate successful end (e.g InitialContextSetupRequest)
   virtual void notify_rrc_reconf_complete(uint16_t rnti) = 0;

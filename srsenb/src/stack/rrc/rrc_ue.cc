@@ -1732,3 +1732,26 @@ rrc::ue* rrc::ue::find_handover_source_ue(uint16_t old_rnti, uint32_t old_pci)
 }
 
 } // namespace srsenb
+
+namespace srsenb {
+bool rrc::ue::export_x2_context(uint32_t eci, asn1::s1ap::ho_request_s& request)
+{
+  const auto* pcell = ue_cell_list.get_ue_cc_idx(UE_PCELL_CC_IDX);
+  const auto& neighbours = pcell->cell_common->cell_cfg.meas_cfg.meas_cells;
+  auto target = std::find_if(neighbours.begin(), neighbours.end(), [eci](const meas_cell_cfg_t& c) { return c.eci == eci; });
+  if (target == neighbours.end() || !ue_security_cfg.export_x2_security(target->pci, target->earfcn, request)) return false;
+  request->ueaggregate_maximum_bitrate.value = bitrates;
+  auto& list = request->erab_to_be_setup_list_ho_req.value;
+  list.resize(bearer_list.get_erabs().size());
+  unsigned i = 0;
+  for (const auto& pair : bearer_list.get_erabs()) {
+    list[i].load_info_obj(ASN1_S1AP_ID_ERAB_TO_BE_SETUP_ITEM_HO_REQ);
+    auto& dst = list[i++]->erab_to_be_setup_item_ho_req();
+    dst.erab_id = pair.second.id;
+    dst.erab_level_qos_params = pair.second.qos_params;
+    dst.transport_layer_address = pair.second.address;
+    for (unsigned j=0;j<4;++j) dst.gtp_teid.data()[j]=(pair.second.teid_out>>(24-8*j))&255;
+  }
+  return list.size() != 0;
+}
+}

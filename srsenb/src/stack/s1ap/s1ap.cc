@@ -339,6 +339,14 @@ int s1ap::init(const s1ap_args_t& args_, rrc_interface_s1ap* rrc_)
   args = args_;
 
   build_tai_cgi();
+#ifdef SRSENB_ENABLE_X2
+  if (!x2_init()) return SRSRAN_ERROR;
+#else
+  if (getenv("SRSRAN_LAB_X2_PEER")) {
+    logger.error("X2 requested but this binary was built without the X2 codec");
+    return SRSRAN_ERROR;
+  }
+#endif
 
   // Setup MME reconnection timer
   mme_connect_timer    = task_sched.get_unique_timer();
@@ -371,6 +379,9 @@ int s1ap::init(const s1ap_args_t& args_, rrc_interface_s1ap* rrc_)
 void s1ap::stop()
 {
   running = false;
+#ifdef SRSENB_ENABLE_X2
+  if (x2_socket.is_open()) { rx_socket_handler->remove_socket(x2_socket.get_socket()); x2_socket.close(); }
+#endif
   mme_socket.close();
 }
 
@@ -749,6 +760,10 @@ bool s1ap::handle_successfuloutcome(const successful_outcome_s& msg)
       return handle_s1setupresponse(msg.value.s1_setup_resp());
     case s1ap_elem_procs_o::successful_outcome_c::types_opts::ho_cmd:
       return handle_handover_command(msg.value.ho_cmd());
+#ifdef SRSENB_ENABLE_X2
+    case s1ap_elem_procs_o::successful_outcome_c::types_opts::path_switch_request_ack:
+      return x2_path_ack(msg.value.path_switch_request_ack());
+#endif
     case s1ap_elem_procs_o::successful_outcome_c::types_opts::ho_cancel_ack:
       return true;
     default:
@@ -762,6 +777,13 @@ bool s1ap::handle_unsuccessfuloutcome(const unsuccessful_outcome_s& msg)
   switch (msg.value.type().value) {
     case s1ap_elem_procs_o::unsuccessful_outcome_c::types_opts::s1_setup_fail:
       return handle_s1setupfailure(msg.value.s1_setup_fail());
+#ifdef SRSENB_ENABLE_X2
+    case s1ap_elem_procs_o::unsuccessful_outcome_c::types_opts::path_switch_request_fail: {
+      auto u = users.find_ue_enbid(msg.value.path_switch_request_fail()->enb_ue_s1ap_id.value.value);
+      if (u) x2_cancel(u->ctxt.rnti);
+      return false;
+    }
+#endif
     case s1ap_elem_procs_o::unsuccessful_outcome_c::types_opts::ho_prep_fail:
       return handle_handover_preparation_failure(msg.value.ho_prep_fail());
     default:
@@ -1264,6 +1286,9 @@ bool s1ap::handle_handover_request(const asn1::s1ap::ho_request_s& msg)
 
 void s1ap::send_ho_failure(uint32_t mme_ue_s1ap_id, const asn1::s1ap::cause_c& cause)
 {
+#ifdef SRSENB_ENABLE_X2
+  if (x2_target_allocating) { x2_failure(x2_incoming.old_id); return; }
+#endif
   // Remove created s1ap user
   ue* u = users.find_ue_mmeid(mme_ue_s1ap_id);
   if (u != nullptr) {
@@ -1287,6 +1312,15 @@ bool s1ap::send_ho_req_ack(const asn1::s1ap::ho_request_s&                msg,
                            srsran::span<asn1::s1ap::erab_admitted_item_s> admitted_bearers,
                            srsran::const_span<asn1::s1ap::erab_item_s>    not_admitted_bearers)
 {
+#ifdef SRSENB_ENABLE_X2
+  if (x2_target_allocating) {
+    if (not_admitted_bearers.size() != 0) {
+      logger.warning("X2 lab requires all requested E-RABs to be admitted");
+      return false;
+    }
+    return x2_ack(msg, rnti, enb_cc_idx, std::move(ho_cmd), admitted_bearers);
+  }
+#endif
   s1ap_pdu_c tx_pdu;
   tx_pdu.set_successful_outcome().load_info_obj(ASN1_S1AP_ID_HO_RES_ALLOC);
   ho_request_ack_s& container = tx_pdu.successful_outcome().value.ho_request_ack();
@@ -1369,6 +1403,9 @@ bool s1ap::handle_mme_status_transfer(const asn1::s1ap::mme_status_transfer_s& m
 
 void s1ap::send_ho_notify(uint16_t rnti, uint64_t target_eci)
 {
+#ifdef SRSENB_ENABLE_X2
+  if (x2_users.count(rnti)) { x2_path_switch(rnti, target_eci); return; }
+#endif
   ue* user_ptr = users.find_ue_rnti(rnti);
   if (user_ptr == nullptr) {
     return;
@@ -1391,6 +1428,9 @@ void s1ap::send_ho_notify(uint16_t rnti, uint64_t target_eci)
 
 void s1ap::send_ho_cancel(uint16_t rnti, const asn1::s1ap::cause_c& cause)
 {
+#ifdef SRSENB_ENABLE_X2
+  if (x2_enabled) { x2_cancel(rnti); return; }
+#endif
   ue* user_ptr = users.find_ue_rnti(rnti);
   if (user_ptr == nullptr) {
     logger.warning("Canceling handover for non-existent rnti=0x%x", rnti);
@@ -1891,6 +1931,9 @@ bool s1ap::send_ho_required(uint16_t                     rnti,
                             srsran::unique_byte_buffer_t rrc_container,
                             bool                         has_direct_fwd_path)
 {
+#ifdef SRSENB_ENABLE_X2
+  if (x2_enabled) return mme_connected && x2_request(rnti, target_eci, std::move(rrc_container));
+#endif
   if (!mme_connected) {
     return false;
   }
@@ -1910,6 +1953,9 @@ bool s1ap::send_ho_required(uint16_t                     rnti,
 
 bool s1ap::send_enb_status_transfer_proc(uint16_t rnti, std::vector<bearer_status_info>& bearer_status_list)
 {
+#ifdef SRSENB_ENABLE_X2
+  if (x2_users.count(rnti)) return x2_status(rnti, bearer_status_list);
+#endif
   if (not mme_connected) {
     return false;
   }

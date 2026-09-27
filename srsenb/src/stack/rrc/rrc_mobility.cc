@@ -664,8 +664,8 @@ rrc::ue::rrc_mobility::s1_source_ho_st::start_enb_status_transfer(const asn1::s1
 
 void rrc::ue::rrc_mobility::s1_source_ho_st::enter(rrc_mobility* f, const ho_meas_report_ev& ev)
 {
-  srsran::console("Starting S1 Handover of rnti=0x%x to cellid=0x%x.\n", rrc_ue->rnti, ev.target_eci);
-  logger.info("Starting S1 Handover of rnti=0x%x to cellid=0x%x.", rrc_ue->rnti, ev.target_eci);
+  srsran::console("Starting %s Handover of rnti=0x%x to cellid=0x%x.\n", rrc_enb->s1ap->uses_x2() ? "X2" : "S1", rrc_ue->rnti, ev.target_eci);
+  logger.info("Starting %s Handover of rnti=0x%x to cellid=0x%x.", rrc_enb->s1ap->uses_x2() ? "X2" : "S1", rrc_ue->rnti, ev.target_eci);
   report = ev;
 
   if (not parent_fsm()->start_ho_preparation(
@@ -796,7 +796,7 @@ void rrc::ue::rrc_mobility::handle_ho_requested(idle_st& s, const ho_req_rx_ev& 
     trigger(ho_failure_ev{cause});
     return;
   }
-  rrc_enb->log_rrc_message(direction_t::fromS1AP, rrc_ue->rnti, -1, rrc_container, hoprep, "HandoverPreparation");
+  rrc_enb->log_rrc_message(rrc_enb->s1ap->uses_x2() ? direction_t::fromX2AP : direction_t::fromS1AP, rrc_ue->rnti, -1, rrc_container, hoprep, "HandoverPreparation");
 
   /* Setup UE current state in TeNB based on HandoverPreparation message */
   const ho_prep_info_r8_ies_s& hoprep_r8 = hoprep.crit_exts.c1().ho_prep_info_r8();
@@ -843,7 +843,7 @@ void rrc::ue::rrc_mobility::handle_ho_requested(idle_st& s, const ho_req_rx_ev& 
     return;
   }
   ho_cmd_pdu->N_bytes = bref2.distance_bytes();
-  rrc_enb->log_rrc_message(direction_t::toS1AP, rrc_ue->rnti, -1, *ho_cmd_pdu, dl_dcch_msg, "HandoverCommand");
+  rrc_enb->log_rrc_message(rrc_enb->s1ap->uses_x2() ? direction_t::toX2AP : direction_t::toS1AP, rrc_ue->rnti, -1, *ho_cmd_pdu, dl_dcch_msg, "HandoverCommand");
 
   asn1::rrc::ho_cmd_s         ho_cmd;
   asn1::rrc::ho_cmd_r8_ies_s& ho_cmd_r8 = ho_cmd.crit_exts.set_c1().set_ho_cmd_r8();
@@ -997,7 +997,11 @@ bool rrc::ue::rrc_mobility::apply_ho_prep_cfg(const ho_prep_info_r8_ies_s&      
   }
   rrc_ue->ue_security_cfg.set_security_key(ho_req_msg->security_context.value.next_hop_param);
   rrc_ue->ue_security_cfg.set_ncc(ho_req_msg->security_context.value.next_hop_chaining_count);
-  rrc_ue->ue_security_cfg.regenerate_keys_handover(target_cell_cfg.pci, target_cell_cfg.dl_earfcn);
+  // X2 carries the already-derived KeNB*. S1 carries NH and needs target derivation.
+  if (!rrc_enb->s1ap->is_x2_target()) {
+    rrc_ue->ue_security_cfg.regenerate_keys_handover(target_cell_cfg.pci, target_cell_cfg.dl_earfcn);
+  }
+  rrc_ue->set_bitrates(ho_req_msg->ueaggregate_maximum_bitrate.value);
 
   // Save UE Capabilities
   for (const auto& cap : ho_prep.ue_radio_access_cap_info) {

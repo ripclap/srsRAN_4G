@@ -18,5 +18,14 @@
 # and at http://www.gnu.org/licenses/.
 #
 
-set(SOURCES s1ap.cc)
+set(SOURCES s1ap.cc s1ap_x2.cc)
 add_library(srsenb_s1ap STATIC ${SOURCES})
+
+set(X2AP_CODEC_DIR "" CACHE PATH "Generated, pinned X2AP ASN.1 codec directory")
+if(X2AP_CODEC_DIR)
+  add_subdirectory(${X2AP_CODEC_DIR} ${CMAKE_BINARY_DIR}/x2ap-codec)
+  target_link_libraries(srsenb_s1ap PUBLIC x2ap_codec)
+  target_compile_definitions(srsenb_s1ap PUBLIC SRSENB_ENABLE_X2)
+  # Other stack libraries include s1ap.h and must see the same class layout.
+  add_compile_definitions(SRSENB_ENABLE_X2)
+endif()

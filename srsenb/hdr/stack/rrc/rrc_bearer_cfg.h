@@ -43,6 +43,8 @@ public:
     std::copy(other.k_enb, other.k_enb + 32, k_enb);
     sec_cfg = other.sec_cfg;
     ncc     = other.ncc;
+    next_hop = other.next_hop;
+    next_hop_present = other.next_hop_present;
   }
 
   security_cfg_handler& operator=(const security_cfg_handler& other)
@@ -53,6 +55,8 @@ public:
     std::copy(other.k_enb, other.k_enb + 32, k_enb);
     sec_cfg = other.sec_cfg;
     ncc     = other.ncc;
+    next_hop = other.next_hop;
+    next_hop_present = other.next_hop_present;
     return *this;
   }
 
@@ -65,6 +69,8 @@ public:
   uint8_t                             get_ncc() const { return ncc; }
   bool                                is_as_sec_cfg_valid() const { return k_enb_present; }
 
+  bool export_x2_security(uint32_t pci, uint32_t earfcn, asn1::s1ap::ho_request_s& request) const;
+  void set_next_hop(const asn1::s1ap::security_context_s& context);
   void regenerate_keys_handover(uint32_t new_pci, uint32_t new_dl_earfcn);
 
 private:
@@ -74,6 +80,8 @@ private:
   const rrc_cfg_t*              cfg                   = nullptr;
   bool                          k_enb_present         = false;
   asn1::s1ap::ue_security_cap_s security_capabilities = {};
+  std::array<uint8_t, 32> next_hop = {};
+  bool next_hop_present = false;
   uint8_t                       k_enb[32]             = {}; // Provided by MME
   srsran::as_security_config_t  sec_cfg               = {};
   uint8_t                       ncc                   = 0;

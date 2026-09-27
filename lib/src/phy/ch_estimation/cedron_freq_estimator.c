@@ -104,7 +104,7 @@ int srsran_cedron_freq_est_replan_c(srsran_cedron_freq_est_t* q, int new_dft_poi
     fftwf_destroy_plan(q->p);
     q->p = NULL;
   }
-  q->p = fftwf_plan_dft_1d(new_dft_points, q->in, q->out, FFTW_FORWARD, FFTW_MEASURE);
+  q->p = fftwf_plan_dft_1d(new_dft_points, q->in, q->out, FFTW_FORWARD, (getenv("SRSRAN_LAB_FFTW_ESTIMATE") && strcmp(getenv("SRSRAN_LAB_FFTW_ESTIMATE"), "1") == 0) ? FFTW_ESTIMATE : FFTW_MEASURE);
   pthread_mutex_unlock(&freq_est_fft_mutex);
 
   if (!q->p) {

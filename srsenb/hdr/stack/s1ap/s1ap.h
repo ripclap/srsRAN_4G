@@ -70,6 +70,7 @@ public:
   int  init(const s1ap_args_t& args_, rrc_interface_s1ap* rrc_);
   void stop();
   void get_metrics(s1ap_metrics_t& m);
+  void x2_tick();
 
   // RRC interface
   void initial_ue(uint16_t                              rnti,
@@ -88,6 +89,20 @@ public:
   bool user_release(uint16_t rnti, asn1::s1ap::cause_radio_network_e cause_radio) override;
   void notify_rrc_reconf_complete(uint16_t rnti) override;
   bool is_mme_connected() override;
+  bool uses_x2() const override {
+#ifdef SRSENB_ENABLE_X2
+    return x2_enabled;
+#else
+    return false;
+#endif
+  }
+  bool is_x2_target() const override {
+#ifdef SRSENB_ENABLE_X2
+    return x2_target_allocating;
+#else
+    return false;
+#endif
+  }
   bool send_ho_required(uint16_t                     rnti,
                         uint32_t                     target_eci,
                         uint16_t                     target_tac,
@@ -127,6 +142,42 @@ private:
   static const int PROTO           = IPPROTO_SCTP;
   static const int PPID            = 18;
   static const int NONUE_STREAM_ID = 0;
+
+#ifdef SRSENB_ENABLE_X2
+  struct x2_ue_context {
+    uint16_t old_id = 0, new_id = 0, rnti = SRSRAN_INVALID_RNTI;
+    bool target = false, command_sent = false;
+    uint64_t deadline = 0;
+    asn1::s1ap::ho_request_s request;
+    asn1::s1ap::ue_security_cap_s capabilities;
+    std::vector<asn1::s1ap::erab_admitted_item_s> admitted;
+  };
+  srsran::unique_socket x2_socket;
+  sockaddr_in x2_peer = {};
+  uint32_t x2_peer_eci = 0;
+  uint16_t x2_pci = 0, x2_next_id = 1;
+  uint32_t x2_earfcn = 0;
+  uint64_t x2_ticks = 0, x2_next_setup = 0;
+  bool x2_enabled = false, x2_ready = false, x2_target_allocating = false;
+  x2_ue_context x2_incoming;
+  std::map<uint16_t, x2_ue_context> x2_users;
+  uint16_t x2_allocate_id();
+  bool x2_init();
+  bool x2_send_raw(const void* message, bool ue_message);
+  bool x2_setup(bool response);
+  void x2_receive(srsran::unique_byte_buffer_t pdu, const sockaddr_in& from,
+                  const sctp_sndrcvinfo& sri, int flags);
+  bool x2_request(uint16_t rnti, uint32_t target_eci, srsran::unique_byte_buffer_t container);
+  bool x2_ack(const asn1::s1ap::ho_request_s& msg, uint16_t rnti, uint32_t cc,
+              srsran::unique_byte_buffer_t command,
+              srsran::span<asn1::s1ap::erab_admitted_item_s> admitted);
+  bool x2_status(uint16_t rnti, const std::vector<bearer_status_info>& status);
+  bool x2_release(uint16_t rnti);
+  void x2_failure(uint16_t old_id);
+  void x2_cancel(uint16_t rnti);
+  bool x2_path_switch(uint16_t rnti, uint64_t eci);
+  bool x2_path_ack(const asn1::s1ap::path_switch_request_ack_s& msg);
+#endif
 
   // args
   rrc_interface_s1ap*         rrc = nullptr;
@@ -287,7 +338,7 @@ private:
                           bool                         has_direct_fwd_path);
     void get_erab_addr(uint16_t erab_id, transp_addr_t& transp_addr, asn1::fixed_octstring<4, true>& gtpu_teid_id);
 
-    // args
+      // args
     s1ap*                 s1ap_ptr;
     srslog::basic_logger& logger;
 

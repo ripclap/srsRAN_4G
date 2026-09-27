@@ -33,6 +33,8 @@ class rrc_interface_s1ap
 public:
   using failed_erab_list = std::map<uint32_t, asn1::s1ap::cause_c>;
 
+  virtual bool export_x2_context(uint16_t rnti, uint32_t eci, asn1::s1ap::ho_request_s& request) { return false; }
+  virtual void update_x2_security(uint16_t rnti, const asn1::s1ap::security_context_s& context) {}
   virtual void write_dl_info(uint16_t rnti, srsran::unique_byte_buffer_t sdu)                    = 0;
   virtual void release_ue(uint16_t rnti)                                                         = 0;
   virtual bool setup_ue_ctxt(uint16_t rnti, const asn1::s1ap::init_context_setup_request_s& msg) = 0;

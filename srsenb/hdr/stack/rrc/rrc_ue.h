@@ -123,6 +123,8 @@ public:
   bool handle_ue_ctxt_mod_req(const asn1::s1ap::ue_context_mod_request_s& msg);
   void handle_ue_info_resp(const asn1::rrc::ue_info_resp_r9_s& msg, srsran::unique_byte_buffer_t pdu);
 
+  bool export_x2_context(uint32_t eci, asn1::s1ap::ho_request_s& request);
+  void update_x2_security(const asn1::s1ap::security_context_s& context) { ue_security_cfg.set_next_hop(context); }
   void set_bitrates(const asn1::s1ap::ue_aggregate_maximum_bitrate_s& rates);
 
   /// Helper to check UE ERABs

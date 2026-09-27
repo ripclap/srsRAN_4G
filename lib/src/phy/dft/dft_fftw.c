@@ -46,7 +46,7 @@ static int get_fftw_wisdom_file(char* full_path, uint32_t n)
 }
 
 #ifdef FFTW_WISDOM_FILE
-#define FFTW_TYPE FFTW_MEASURE
+#define FFTW_TYPE ((getenv("SRSRAN_LAB_FFTW_ESTIMATE") && strcmp(getenv("SRSRAN_LAB_FFTW_ESTIMATE"), "1") == 0) ? FFTW_ESTIMATE : FFTW_MEASURE)
 #else
 #define FFTW_TYPE 0
 #endif

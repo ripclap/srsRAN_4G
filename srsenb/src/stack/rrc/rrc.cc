@@ -1201,7 +1201,7 @@ void rrc::log_rxtx_pdu_impl(direction_t             dir,
                             srsran::const_byte_span pdu,
                             const char*             msg_type)
 {
-  static const char* dir_str[] = {"Rx", "Tx", "Tx S1AP", "Rx S1AP"};
+  static const char* dir_str[] = {"Rx", "Tx", "Tx S1AP", "Rx S1AP", "Tx X2AP", "Rx X2AP"};
   fmt::memory_buffer membuf;
   fmt::format_to(membuf, "{} ", dir_str[dir]);
   if (rnti != SRSRAN_PRNTI and rnti != SRSRAN_SIRNTI) {
@@ -1218,3 +1218,17 @@ void rrc::log_rxtx_pdu_impl(direction_t             dir,
 }
 
 } // namespace srsenb
+
+namespace srsenb {
+bool rrc::export_x2_context(uint16_t rnti, uint32_t eci, asn1::s1ap::ho_request_s& request)
+{
+  auto it = users.find(rnti);
+  if (it == users.end()) return false;
+  return it->second->export_x2_context(eci, request);
+}
+void rrc::update_x2_security(uint16_t rnti, const asn1::s1ap::security_context_s& context)
+{
+  auto it = users.find(rnti);
+  if (it != users.end()) it->second->update_x2_security(context);
+}
+}
