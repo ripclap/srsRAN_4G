@@ -1,6 +1,16 @@
 srsRAN
 ======
 
+Fork additions
+--------------
+
+This fork adds experimental native X2 handover to srsENB and an optional FFTW
+startup setting. See the [X2 handover guide](docs/x2-handover.md) for build
+instructions, peer configuration, and testing details.
+
+Upstream project
+----------------
+
 [![Build Status](https://github.com/srsran/srsRAN_4G/actions/workflows/ccpp.yml/badge.svg)](https://github.com/srsran/srsRAN_4G/actions/workflows/ccpp.yml)
 [![CodeQL](https://github.com/srsran/srsRAN_4G/actions/workflows/codeql.yml/badge.svg)](https://github.com/srsran/srsRAN_4G/actions/workflows/codeql.yml)
 

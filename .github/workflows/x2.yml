@@ -1,0 +1,22 @@
+name: X2 build
+on:
+  push:
+    branches: [master]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  x2:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake pkg-config git ca-certificates autoconf automake libtool bison flex python3 libfftw3-dev libmbedtls-dev libboost-program-options-dev libconfig++-dev libsctp-dev libzmq3-dev
+      - name: Generate X2AP codec
+        run: ./tools/build_x2_codec.sh
+      - name: Build srsENB and srsUE with X2
+        run: |
+          cmake -S . -B build/enb-x2 -DCMAKE_BUILD_TYPE=Release -DENABLE_WERROR=OFF -DX2AP_CODEC_DIR="$PWD/build/x2ap" -DENABLE_UHD=OFF -DENABLE_BLADERF=OFF -DENABLE_SOAPYSDR=OFF -DENABLE_GUI=OFF -DENABLE_ALL_TEST=OFF -DENABLE_SRSEPC=OFF
+          cmake --build build/enb-x2 -j2 --target srsenb srsue
